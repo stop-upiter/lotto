@@ -1,0 +1,200 @@
+<!-- This code generated via ChatGPT by Mopsicus -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Генератор карточек для Русского Лото</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    #controls {
+      margin-bottom: 20px;
+    }
+    input[type="number"] {
+      padding: 5px;
+      width: 100px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Генератор карточек для Русского Лото</h1>
+
+  <div id="controls">
+    <label for="pageCount">Количество страниц: </label>
+    <input type="number" id="pageCount" min="1" value="1">
+    <button onclick="generatePDF()">Сгенерировать PDF</button>
+  </div>
+
+  <div id="cardContainer">
+    <!-- Генерация карточек будет отображаться здесь -->
+  </div>
+
+  <script>
+    // Функция для генерации одной карточки
+    const generateLotoCard = () => {
+      const card = [
+        Array(9).fill(0), // Первая строка
+        Array(9).fill(0), // Вторая строка
+        Array(9).fill(0), // Третья строка
+      ];
+
+      const columnRanges = [
+        [1, 9],
+        [10, 19],
+        [20, 29],
+        [30, 39],
+        [40, 49],
+        [50, 59],
+        [60, 69],
+        [70, 79],
+        [80, 90]
+      ];
+
+      const generateValidCard = () => {
+        const tempCard = [
+          Array(9).fill(0),
+          Array(9).fill(0),
+          Array(9).fill(0),
+        ];
+
+        for (let col = 0; col < 9; col++) {
+          const [min, max] = columnRanges[col];
+          const numbersInColumn = Array.from({ length: max - min + 1 }, (_, i) => i + min);
+
+          const numCount = Math.floor(Math.random() * 2) + 1;
+          const selectedNumbers = [];
+          for (let i = 0; i < numCount; i++) {
+            const randomIndex = Math.floor(Math.random() * numbersInColumn.length);
+            const num = numbersInColumn[randomIndex];
+            selectedNumbers.push(num);
+            numbersInColumn.splice(randomIndex, 1);
+          }
+
+          for (const num of selectedNumbers) {
+            let row;
+            do {
+              row = Math.floor(Math.random() * 3);
+            } while (tempCard[row][col] !== 0);
+
+            tempCard[row][col] = num;
+          }
+        }
+
+        const isValid = tempCard.every(row => row.filter(num => num !== 0).length === 5);
+        if (isValid) {
+          return tempCard;
+        } else {
+          return generateValidCard();
+        }
+      };
+
+      return generateValidCard();
+    };
+
+    // Генерация PDF с заданным количеством страниц
+    const generatePDF = async () => {
+      const pageCount = parseInt(document.getElementById('pageCount').value);
+      const { PDFDocument } = PDFLib;
+      const pdfDoc = await PDFDocument.create();
+      const pageWidth = 595;  // Размер страницы A4 в точках
+      const pageHeight = 842;
+
+      // Встраиваем шрифт Helvetica
+      const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+      const fontSize = 20; // Увеличенный размер шрифта для чисел
+
+      // Цвет для текста
+      const blackColor = PDFLib.rgb(0, 0, 0);
+
+      // Расстояние между карточками
+      const verticalSpacing = 20; // Увеличенное расстояние между карточками по вертикали
+
+      for (let i = 0; i < pageCount; i++) {
+        const page = pdfDoc.addPage([pageWidth, pageHeight]);
+
+        // Вставка надписи, строго по центру
+        const title = 'LOTO';
+        const titleWidth = font.widthOfTextAtSize(title, 20);
+        page.drawText(title, {
+          x: (pageWidth - titleWidth) / 2,  // Центрирование по X
+          y: pageHeight - 50,
+          size: 20,
+          font,
+          color: blackColor,
+        });
+
+        // Генерация и отрисовка карточек
+        const cardWidth = pageWidth - 20; // Карточки занимают всю ширину
+        const cardHeight = 150; // Высота карточки
+
+        const cardsPerColumn = Math.floor((pageHeight - 100) / (cardHeight + verticalSpacing)); // Количество карточек по вертикали
+
+        for (let row = 0; row < cardsPerColumn; row++) {
+          const card = generateLotoCard();
+
+          const cardY = pageHeight - (row + 1) * (cardHeight + verticalSpacing) - 70;
+          const cardX = 10; // Расположение карточки по горизонтали
+
+          // Рисуем рамку карточки (толщина рамки 3 пикселя)
+          page.drawRectangle({
+            x: cardX,
+            y: cardY,
+            width: cardWidth,
+            height: cardHeight,
+            borderColor: blackColor,
+            borderWidth: 3, // Устанавливаем толщину рамки 3 пикселя
+          });
+
+          // Рисуем числа в карточке
+          const cellWidth = cardWidth / 9;
+          const cellHeight = cardHeight / 3;
+
+          for (let rowIndex = 0; rowIndex < 3; rowIndex++) {
+            for (let colIndex = 0; colIndex < 9; colIndex++) {
+              const num = card[rowIndex][colIndex];
+              const x = cardX + colIndex * cellWidth + (cellWidth / 2) - 12; // Центрирование по X
+              const y = cardY + (2 - rowIndex) * cellHeight + (cellHeight / 2) - 10; // Центрирование по Y
+
+              // Рисуем рамку для числа (включая пустые ячейки)
+              page.drawRectangle({
+                x: cardX + colIndex * cellWidth,
+                y: cardY + (2 - rowIndex) * cellHeight,
+                width: cellWidth,
+                height: cellHeight,
+                borderColor: blackColor,
+                borderWidth: 1,
+              });
+
+              // Если число присутствует, отображаем его в центре ячейки
+              if (num !== 0) {
+                page.drawText(num.toString(), {
+                  x,
+                  y,
+                  size: fontSize, // Увеличенный размер шрифта
+                  font,
+                  color: blackColor,
+                  align: 'center',
+                  baseline: 'middle',
+                });
+              }
+            }
+          }
+        }
+      }
+
+      const pdfBytes = await pdfDoc.save();
+
+      // Создаем ссылку для скачивания
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }));
+      link.download = 'loto_cards.pdf';
+      link.click();
+    };
+  </script>
+</body>
+</html>
